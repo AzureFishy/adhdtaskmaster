@@ -691,13 +691,6 @@ body {
     word-break: break-word;
 }
 
-.sentence-indicator {
-    margin-left: 0.25rem;
-    font-size: 0.5rem;
-    opacity: 0.7;
-    flex-shrink: 0;
-}
-
 .sentence-handle {
     position: absolute;
     top: -0.25rem;
@@ -989,10 +982,6 @@ input[type="text"]:focus {
         font-size: 0.875rem;
     }
     
-    .sentence-indicator {
-        font-size: 0.75rem;
-    }
-    
     .sentence {
         padding: 0.75rem 1rem;
     }
@@ -1015,9 +1004,5 @@ input[type="text"]:focus {
 @media (min-width: 1024px) {
     .sentence-text {
         font-size: 0.875rem;
-    }
-    
-    .sentence-indicator {
-        font-size: 0.75rem;
     }
 }

@@ -20,6 +20,7 @@ const state = {
     dragOverZone: null,
     touchDragData: null,
     pressedItem: null,
+    recycleBinHideTimer: null,
     debugLogs: [],
     expandedSentences: new Set(),
     trashedSentences: new Set(),
@@ -38,6 +39,7 @@ const state = {
 
 // Constants
 const DRAG_THRESHOLD = 10;
+const RECYCLE_BIN_HIDE_DELAY = 2000; // 2 seconds
 const isMobile = window.matchMedia('(max-width: 768px)').matches && 'ontouchstart' in window;
 
 // Utility functions
@@ -187,21 +189,16 @@ function createSentenceElement(sentence, sourceZone) {
     div.title = `${isTruncated ? `Full text: ${sentence.text}\n(Click to expand)` : isExpanded ? 'Click to collapse' : sentence.text}${isTrashed ? '\n(Double-click to restore)' : '\n(Double-click to trash)'}`;
     
     // Create content
-    div.innerHTML = `
-        <div class="flex items-center flex-1">
-            <span class="sentence-text">${displayText}</span>
-            ${(isTruncated || isExpanded || isTrashed) ? `
-                <span class="sentence-indicator" title="${isTrashed ? 'Trashed' : isExpanded ? 'Expanded' : 'Text truncated'}">
-                    ${isTrashed ? '🗑️' : isExpanded ? '📖' : '✂️'}
-                </span>
-            ` : ''}
-        </div>
-        ${isMobile ? `
-            <div class="sentence-handle">
-                <span class="sentence-handle-icon ${isTrashed ? 'trashed' : ''}">✋</span>
+        div.innerHTML = `
+            <div class="flex items-center flex-1">
+                <span class="sentence-text">${displayText}</span>
             </div>
-        ` : ''}
-    `;
+            ${isMobile ? `
+                <div class="sentence-handle">
+                    <span class="sentence-handle-icon ${isTrashed ? 'trashed' : ''}">✋</span>
+                </div>
+            ` : ''}
+        `;
     
     // Add event listeners
     div.addEventListener('dragstart', (e) => handleDragStart(e, sentence));
@@ -336,6 +333,7 @@ function handleDragEnd() {
     state.isDragIntent = false;
     hideRecycleBin();
     debugLog('Recycle bin hidden');
+    renderAllZones(); // Add this line to re-render and remove the dragging class
 }
 
 function handleDragOver(e) {
@@ -627,12 +625,42 @@ function showRecycleBin() {
 }
 
 function hideRecycleBin() {
+    // Clear any existing timer
+    if (state.recycleBinHideTimer) {
+        clearTimeout(state.recycleBinHideTimer);
+        state.recycleBinHideTimer = null;
+    }
+    
+    // Don't hide if we're currently dragging the bin
+    if (state.isDraggingTrashBin) {
+        return;
+    }
+    
+    // Set a timer to hide the recycle bin
+    state.recycleBinHideTimer = setTimeout(() => {
+        document.getElementById('recycleBin').classList.add('hidden');
+        document.getElementById('recycleBin').classList.remove('active');
+        state.recycleBinHideTimer = null;
+    }, RECYCLE_BIN_HIDE_DELAY);
+}
+
+function hideRecycleBinImmediately() {
+    if (state.recycleBinHideTimer) {
+        clearTimeout(state.recycleBinHideTimer);
+        state.recycleBinHideTimer = null;
+    }
     document.getElementById('recycleBin').classList.add('hidden');
     document.getElementById('recycleBin').classList.remove('active');
 }
 
 // Trash bin dragging
 function handleTrashBinMouseDown(e) {
+    // Clear hide timer when starting to drag
+    if (state.recycleBinHideTimer) {
+        clearTimeout(state.recycleBinHideTimer);
+        state.recycleBinHideTimer = null;
+    }
+    
     state.isDraggingTrashBin = true;
     state.trashBinDragStart = {
         x: e.clientX - state.trashBinPosition.x,
@@ -659,11 +687,20 @@ function handleTrashBinMouseUp() {
             y: Math.round(state.trashBinPosition.y) 
         });
         document.getElementById('recycleBin').classList.remove('dragging');
+        
+        // Restart the hide timer after dragging
+        hideRecycleBin();
     }
     state.isDraggingTrashBin = false;
 }
 
 function handleTrashBinTouchStart(e) {
+    // Clear hide timer when starting to drag
+    if (state.recycleBinHideTimer) {
+        clearTimeout(state.recycleBinHideTimer);
+        state.recycleBinHideTimer = null;
+    }
+    
     const touch = e.touches[0];
     state.isDraggingTrashBin = true;
     state.trashBinDragStart = {
@@ -692,9 +729,13 @@ function handleTrashBinTouchEnd() {
             y: Math.round(state.trashBinPosition.y) 
         });
         document.getElementById('recycleBin').classList.remove('dragging');
+        
+        // Restart the hide timer after dragging
+        hideRecycleBin();
     }
     state.isDraggingTrashBin = false;
 }
+
 
 function updateTrashBinPosition() {
     const recycleBin = document.getElementById('recycleBin');
